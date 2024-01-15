@@ -1,0 +1,62 @@
+version: "3.8"
+
+services:
+    bx_file_transfer_service:
+        hostname: file-transfer.local
+        container_name: bx_file_transfer_service
+        build:
+            context: ./bx-file-transfer-service
+            dockerfile: ./Dockerfile
+        ports:
+            - 3000:3000
+        volumes:
+            - ./bx-file-transfer-service:/bx-file-transfer-service
+            - /bx-file-transfer-service/node_modules
+        depends_on:
+            - bx_broker
+        networks:
+            - bx_network
+        environment:
+            NODE_ENV: local
+            MQTT_PROTOCOL: mqtt
+            MQTT_PORT: 1883
+            MQTT_HOST: broker.local
+            S3_ENDPOINT: http://bucket.local:9000
+            S3_BUCKET: local
+            S3_ACCESS_KEY: AKIAIOSFODNN7EXAMPLE
+            S3_SECRET_KEY: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+
+    bx_broker:
+        hostname: broker.local
+        container_name: bx_broker
+        image: emqx/emqx:5.1.1-elixir
+        restart: always
+        ports:
+            - 1883:1883
+            - 8083:8083
+            - 8883:8883
+            - 8084:8084
+            - 18083:18083
+        environment:
+            - EMQX_NAME=bx-broker
+            - EMQX_HOST=0.0.0.0
+        volumes:
+            - ./bx-broker/etc/emqx.conf:/opt/emqx/etc/emqx.conf
+            - ./bx-broker/file_transfer/segments:/var/lib/emqx/file_transfer/segments
+
+        networks:
+            - bx_network
+
+    bx_data_storage:
+        image: scireum/s3-ninja
+        hostname: bucket.local
+        ports:
+            - '9000:9000'
+        volumes:
+            - ./bx-data-storage:/data
+        networks:
+            - bx_network
+
+networks:
+    bx_network:
+        driver: bridge
